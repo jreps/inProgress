@@ -1,0 +1,34 @@
+Package: extraModels
+Type: Package
+Title: Package evaluating different models for patient level prediction across different datasets
+Version: 1.0.0
+Date: 2015-11-3
+Author: Jenna M. Reps [aut, cre],
+Maintainer: Jenna M. Reps <reps12@hotmail.com>
+Description: A package for exploring different patient level prediction models. Given a cohort of interest and an outcome of interest, the package can use data in the Common Data Model to build various risk prediction models. These models are then explored across datasets looking at discriminative ability, calibration and generalizability.
+License: Apache License 2.0
+Depends:
+    R (>= 3.1.0),
+    DatabaseConnector (>= 1.3.0),
+    Cyclops (>= 1.2.0)
+Imports:
+    ggplot2,
+    ff,
+    ffbase (>= 0.12.1),
+    plyr,
+    survAUC,
+    RJDBC,
+    SqlRender (>= 1.1.3),
+    pROC,
+    PatientLevelPrediction,
+    h2o,
+    caret,
+    rpart
+Suggests:
+    testthat,
+    gnm,
+    knitr,
+    rmarkdown,
+    OhdsiRTools
+LinkingTo: Rcpp
+NeedsCompilation: yes
