@@ -10,7 +10,10 @@ License: Apache License 2.0
 Depends:
     R (>= 3.1.0),
     DatabaseConnector (>= 1.3.0),
-    Cyclops (>= 1.2.0)
+    Cyclops (>= 1.2.0),
+    caret (>= 6.0-58),
+    h2o,
+    rpart
 Imports:
     ggplot2,
     ff,
@@ -21,9 +24,7 @@ Imports:
     SqlRender (>= 1.1.3),
     pROC,
     PatientLevelPrediction,
-    h2o,
-    caret,
-    rpart
+    nnet
 Suggests:
     testthat,
     gnm,

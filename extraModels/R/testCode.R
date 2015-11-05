@@ -2,7 +2,9 @@
 
   modelSettings <- c('lassoLR','nnet','decTree', 'randomForest','gbm','stacker','cox','poisson')
 
-  cdmDatabases <- c("cdm_truven_mdcd_v5.dbo",...)
+  modelList <- c('lassoLR','nnet')
+
+  cdmDatabaseList <- c("cdm_truven_mdcd_v5.dbo")
   cohortId <- 572
   outcomeId <- 573
   cdmCohortTable <- "cohort"

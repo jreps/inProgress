@@ -39,25 +39,25 @@
 #'
 #' @export
 trainModels <- function(cdmDatabaseList,modelList, cohortId, outcomeId, outputFolder){
-
+  writeLines('step 1')
   models <- modelList
 
   # for each database train all the specified models
   for (i in 1:length(cdmDatabaseList)){
     databaseSchema <-  cdmDatabaseList[i]
-
-    plpData <- PatientlevelPrediction::loadPlpData(file.path(outputFolder,'datasets','train',
-                                                               paste(strsplit(databaseSchema, '\\.')[[1]][1], cohortId, outcomeId, sep='_')
-    ))
-
+    writeLines('step 2')
+    plpData <- PatientLevelPrediction::loadPlpData(file.path(outputFolder,'datasets','train',
+                                                               paste(strsplit(databaseSchema, '\\.')[[1]][1], cohortId, outcomeId, sep='_')))
+    writeLines(paste(length(plpData)))
     # do the lassLR to find features to use in other models
-    lassLR(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+    if(!file.exists(file.path(outputFolder,'models',paste(paste(strsplit(databaseSchema, '\\.')[[1]][1],'lassLR', cohortId, outcomeId, sep='_'), '.rds', sep='')) ))
+      lassLR(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
 
     if('nnet'%in%models){
       nnet(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('decTree'%in%models){
-      decTree(splits[[1]], databaseSchema,cohortId, outcomeId, outputFolder)
+      decTree(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('randomForest'%in%models){
       randomForest(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
@@ -227,7 +227,7 @@ poisson <- function(plpdata,  databaseSchema,cohortId, outcomeId, outputFolder){
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-nnet <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
+nnet <- function(plpData, databaseSchema,cohortId, outcomeId, outputFolder){
   model <- fitPredictiveModel2(plpData,
                               databaseSchema,outputFolder,
                               modelType = "nnet",

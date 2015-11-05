@@ -112,7 +112,7 @@ extractDatasets <- function(connectionDetails, oracleTempSchema=NULL, cdmCohortT
   for (i in 1:length(cdmDatabaseList)){
    cdmDatabaseSchema <-  cdmDatabaseList[i]
 
-   plpData <- PatientlevelPrediction::getDbPlpData(connectionDetails = connectionDetails,
+   plpData <- PatientLevelPrediction::getDbPlpData(connectionDetails = connectionDetails,
                            cdmDatabaseSchema = cdmDatabaseSchema,
                            oracleTempSchema = oracleTempSchema,
                            cohortDatabaseSchema = cdmDatabaseSchema,
@@ -127,16 +127,16 @@ extractDatasets <- function(connectionDetails, oracleTempSchema=NULL, cdmCohortT
                            firstOutcomeOnly = TRUE,
                            cdmVersion = cdmVersion)
 
-   PatientlevelPrediction::savePlpData(plpData, file.path(outputFolder,'datasets',
+   PatientLevelPrediction::savePlpData(plpData, file.path(outputFolder,'datasets',
                                   paste(strsplit(cdmDatabaseSchema, '\\.')[[1]][1], cohortId, outcomeId, sep='_')
                                   ))
 
-   splits <- PatientlevelPrediction::splitData(plpData, splits = c(0.80,0.20))
+   splits <- PatientLevelPrediction::splitData(plpData, splits = c(0.80,0.20))
 
-   PatientlevelPrediction::savePlpData(splits[[1]], file.path(outputFolder,'datasets','train',
+   PatientLevelPrediction::savePlpData(splits[[1]], file.path(outputFolder,'datasets','train',
                                                           paste(strsplit(cdmDatabaseSchema, '\\.')[[1]][1], cohortId, outcomeId, sep='_')
    ))
-   PatientlevelPrediction::savePlpData(splits[[2]], file.path(outputFolder,'datasets','test',
+   PatientLevelPrediction::savePlpData(splits[[2]], file.path(outputFolder,'datasets','test',
                                                               paste(strsplit(cdmDatabaseSchema, '\\.')[[1]][1], cohortId, outcomeId, sep='_')
    ))
 
