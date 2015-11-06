@@ -65,6 +65,7 @@ if(rocOptions$rocPlotter==TRUE){
 
   if(summaryOptions$summaryPlotter==TRUE){
     allres <- read.csv(file.path(outputFolder, 'prediction','discrimination', 'allresults.csv'), header=T)
+    allres <- allres[,-1]
     colnames(allres) <- c('Model','Train_set', 'Pred_set', 'AUC')
     allres$Train_set <- paste('Train: ',
                               apply(allres, 1, function(x) strsplit(x[2],'\\.')[[1]][1]))
