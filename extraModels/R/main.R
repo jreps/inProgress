@@ -78,7 +78,7 @@ gestdiaMain <- function(connectionDetails, outputFolder=NULL,cdmCohortTable='coh
     dir.create(file.path(outputFolder,'prediction', 'calibration', 'plots'), recursive=T)
 
   # create the model train/test sets for each database
-  writeLines(paste('Extracting all the data for the databases: ',paste(cdmDatabases, collapse=','), sep=''))
+  writeLines(paste('Extracting all the data for the databases: ',paste(cdmDatabaseList, collapse=','), sep=''))
   extractDatasets(connectionDetails, oracleTempSchema=NULL, cdmCohortTable, cdmVersion=5, cdmDatabaseList, cohortId, outcomeId, outputFolder)
   writeLines(paste('Data extracted into: ',file.path(outputFolder,'datasets'), sep=''))
 
@@ -90,12 +90,13 @@ gestdiaMain <- function(connectionDetails, outputFolder=NULL,cdmCohortTable='coh
 
   # save prediction across models and datasets
   writeLines('Calculating predictions across datasets')
-  predictions(cdmDatabaseList, modelList, cohortId, outcomeId, outputFolder, quiet=F)
+  predictions(cdmDatabaseList, modelList, cohortId, outcomeId, outputFolder)
   writeLines(paste('Predictions save to: ',file.path(outputFolder,'prediction'), sep=''))
 
   # evaluate predictions
   writeLines('Evaluating Predictions')
-  #evaluation(modelList, cohortId, outcomeId, outputFolder)
+  evaluation(outputFolder)
+
 
 
   writeLines('All completed...')

@@ -37,10 +37,12 @@
 #'
 #' @export
 
-fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
+fitPredictiveModel2 <- function(localH2O,plpData,databaseSchema, outputFolder,
                                 modelType, cohortId, outcomeId){
 
-  data.loc <- sparseToMat(plpData,databaseSchema,databaseSchema,outputFolder)
+  data.loc <- sparseToMat(plpData,databaseSchema,outputFolder)
+
+
 
   if(modelType=="nnet"){
     all.data <- read.csv(data.loc, header=T, stringsAsFactors=F)
@@ -48,7 +50,7 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
     start <- Sys.time()
 
     fitControl <- caret::trainControl(      method = "cv",
-                                            number = 5,
+                                            number = 2,
                                             classProbs=TRUE,
                                             summaryFunction = caret::twoClassSummary
                                             )
@@ -61,24 +63,24 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
                                 method = "nnet",
                                 metric = "ROC",
                                 MaxNWts = 8000,
-                                maxit = 250,
+                                maxit = 300,
                                 maximize = TRUE,
                                 trControl = fitControl,
-                                #tuneGrid= expand.grid(.size=4, .decay=0.1)
-                                tuneGrid = expand.grid(.size=c(3,5,10),.decay=c(0,0.001,0.1))
+                                tuneGrid= expand.grid(.size=10, .decay=c(0,0.001,0.1))
+                                #tuneGrid = expand.grid(.size=c(3,5,10),.decay=c(0,0.001,0.1))
                                )
 
-    train.auc <- nnet.model$results$ROC[nnet.model$results['size']==nnet.model$bestTune['size'] &
-                                          nnet.model$results['decay']==nnet.model$bestTune['decay']]
+    train.auc <- nnet.model$results$ROC[nnet.model$results$size==nnet.model$bestTune$size &
+                                          nnet.model$results$decay==nnet.model$bestTune$decay]
 
     # save the model
     save.loc <- file.path(outputFolder, 'models', paste(paste('raw',strsplit(databaseSchema, '\\.')[[1]][1],'nnet', cohortId, outcomeId, sep='_'), '.rds', sep=''))
     saveRDS(nnet.model, save.loc)
 
     # finally return
-    trainSetStatistics <- list(numberOfPeriods = nrow(outcomes),
-                               numberOfPeriodsWithOutcomes = ffbase::sum.ff(outcomes$y != 0),
-                               numberOfOutcomes = ffbase::sum.ff(outcomes$y),
+    trainSetStatistics <- list(numberOfPeriods = nrow(all.data),
+                               numberOfPeriodsWithOutcomes = sum(class.lab=='Outcome'),
+                               numberOfOutcomes = sum(class.lab=='Outcome'),
                                cvAUC = train.auc,
                                modeldetails =nnet.model$results)
     predictiveModel <- list(cohortId = cohortId,
@@ -95,6 +97,8 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
   }
 
   if(modelType=="decTree"){
+    all.data <- read.csv(data.loc, header=T, stringsAsFactors=F)
+
     # now apply carets cross validation grid search to train neural network
     start <- Sys.time()
 
@@ -105,9 +109,9 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
     saveRDS(rpart.model, save.loc)
 
     # finally return
-    trainSetStatistics <- list(numberOfPeriods = nrow(outcomes),
-                               numberOfPeriodsWithOutcomes = ffbase::sum.ff(outcomes$y != 0),
-                               numberOfOutcomes = ffbase::sum.ff(outcomes$y),
+    trainSetStatistics <- list(numberOfPeriods = nrow(all.data),
+                               numberOfPeriodsWithOutcomes = sum(all.data$y),
+                               numberOfOutcomes = sum(all.data$y),
                                cvAUC = NULL,
                                modeldetails = rpart.model$call)
     predictiveModel <- list(cohortId = cohortId,
@@ -119,23 +123,41 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
                             trainSetStatistics = trainSetStatistics)
     class(predictiveModel) <- append(class(predictiveModel), "predictiveModel")
     delta <- Sys.time() - start
-    writeLines(paste("Fitting nnet model took", signif(delta, 3), attr(delta, "units")))
+    writeLines(paste("Fitting decTree model took", signif(delta, 3), attr(delta, "units")))
     return(predictiveModel)
   }
 
 
  if(modelType=="randomForest"){
+   writeLines('Training randomForet')
+   start <- Sys.time()
     # now initial h2o and load data
-    localH2O <- h2o::h2o.init(startH2O = TRUE,nthreads = -1)
-
+    writeLines(paste('Data loading from: ', data.loc, sep=''))
     #load data from file:
-    h.data <- h2o::h2o.importFile(localH2O,path = file.path(outputFolder, 'models',paste(databaseSchema,'_',cohortId,'_',outcomeId,'.csv', sep='')),
-                             header=T)
-    h.data <- h.data[,!colnames(h.data)%in%c('rowId','personId','cohortStartDate','time','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
+    h.data <- h2o::h2o.importFile(localH2O,path = data.loc,  header=T)
+    writeLines(paste('Data contains ', nrow(h.data), ' rows and ',ncol(h.data), ' columns',sep=''))
+    #h.data <- h.data[,!h2o.colnames(h.data)%in%c('rowId','personId','cohortStartDate','time','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
+    h.data <- h2o::h2o.removeVecs(h.data,c('rowId','personId','cohortStartDate','time','cohortId','outcomeId', 'outcomeCount', 'timeToEvent'))
 
-    x.names <- (1:ncol(h.data))[!colnames(h.data)%in%c('y','personId','cohortStartDate','time','rowId','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
-    y.names <- (1:ncol(h.data))[colnames(h.data)%in%c('y')]
+    writeLines(paste('After removing columns.. Data contains ', nrow(h.data), ' rows and ',ncol(h.data), ' columns',sep=''))
+    ##writeLines(paste(h2o.colnames(h.data), collapse=':'))
+
+    x.names <- (1:ncol(h.data))[!h2o.colnames(h.data)%in%c('y','personId','cohortStartDate','time','rowId','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
+    y.names <- (1:ncol(h.data))[h2o.colnames(h.data)%in%c('y')]
+
+    writeLines(paste('outcome found at column:', y.names))
+    ##writeLines(paste(table(as.data.frame(h.data$y))))
     h.data$y <- as.factor(h.data$y)
+    writeLines(paste(is.factor(h.data$y)))
+
+    #y.loc <- rep('0', nrow(h.data))
+    #y.loc[as.data.frame(h.data$y)==1] <- '1'
+    #y.loc <- as.factor(y.loc)
+    #y.new <- as.h2o(localH2O, y.loc)
+    #h.data[,y.names] <- y.new
+    #h.data$y <- h2o.cut(h.data$y, breaks=0.5, labels = c('None','Outcome'), include.lowest = TRUE, right = T)
+
+    writeLines('Training...')
 
     # train model
     rf.model <-    h2o::h2o.randomForest(x=x.names, y=y.names, h.data,
@@ -150,19 +172,17 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
     model.detail <- rf.model@model
     auc.train<- h2o::h2o.auc(rf.model@model$cross_validation_metrics)
 
+    writeLines(paste('Random Forest trained... CV AUC:',auc.train))
+
     # save model
     filename=paste('file:///',file.path(outputFolder,'models'), '/h2o', sep='' )
     save.loc <- h2o::h2o.saveModel(object = rf.model, filename)
 
     # save in plp format:
-
     # finally return
-    h2o::h2o.shutdown(localH2O, prompt = F)
-
-    # finally return
-    trainSetStatistics <- list(numberOfPeriods = nrow(outcomes),
-                               numberOfPeriodsWithOutcomes = ffbase::sum.ff(outcomes$y != 0),
-                               numberOfOutcomes = ffbase::sum.ff(outcomes$y),
+    trainSetStatistics <- list(numberOfPeriods = nrow(h.data),
+                               numberOfPeriodsWithOutcomes = sum(h.data$y==1),
+                               numberOfOutcomes = sum(h.data$y==1),
                                trainingAUC = auc.train,
                                modeldetails = model.detail)
     predictiveModel <- list(cohortId = cohortId,
@@ -175,24 +195,40 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
     class(predictiveModel) <- append(class(predictiveModel), "predictiveModel")
     delta <- Sys.time() - start
     writeLines(paste("Fitting randomForest model took", signif(delta, 3), attr(delta, "units")))
+    # finally return
+
     return(predictiveModel)
 
   }
 
 
   if(modelType=="gbm"){
+    start <- Sys.time()
     # now initial h2o and load data
-    localH2O <- h2o::h2o.init(startH2O = TRUE,nthreads = -1)
 
     #load data from file:
-    h.data <- h2o::h2o.importFile(localH2O,path = file.path(outputFolder, 'models',paste(databaseSchema,'_',cohortId,'_',outcomeId,'.csv', sep='')),
-                             header=T)
-    h.data <- h.data[,!colnames(h.data)%in%c('rowId','personId','cohortStartDate','time','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
+    writeLines('Training GBM...')
+    writeLines(paste('Data loading from: ', data.loc, sep=''))
+    #load data from file:
+    h.data <- h2o::h2o.importFile(localH2O,path = data.loc,  header=T)
+    writeLines(paste('Data contains ', nrow(h.data), ' rows and ',ncol(h.data), ' columns',sep=''))
+    h.data <- h2o::h2o.removeVecs(h.data,c('rowId','personId','cohortStartDate','time','cohortId','outcomeId', 'outcomeCount', 'timeToEvent'))
 
-    x.names <- (1:ncol(h.data))[!colnames(h.data)%in%c('y','personId','cohortStartDate','time','rowId','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
-    y.names <- (1:ncol(h.data))[colnames(h.data)%in%c('y')]
+    writeLines(paste('After removing columns.. Data contains ', nrow(h.data), ' rows and ',ncol(h.data), ' columns',sep=''))
+
+    x.names <- (1:ncol(h.data))[!h2o.colnames(h.data)%in%c('y','personId','cohortStartDate','time','rowId','cohortId','outcomeId', 'outcomeCount', 'timeToEvent')]
+    y.names <- (1:ncol(h.data))[h2o.colnames(h.data)%in%c('y')]
+    writeLines(paste('outcome found at column:', y.names))
     h.data$y <- as.factor(h.data$y)
+    #y.loc <- rep('0', nrow(h.data))
+    #y.loc[as.data.frame(h.data$y)==1] <- '1'
+    #y.loc <- as.factor(y.loc)
+    #y.new <- as.h2o(localH2O, y.loc)
+    #h.data[,y.names] <- y.new
 
+    writeLines(paste(is.factor(h.data$y)))
+
+    writeLines('Training started...')
     # train model
     max.auc <- 0
     model.detail <- c()
@@ -208,6 +244,8 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
         max.auc <- auc.train}
     }
     auc.train <- max.auc
+    writeLines(paste('Training completed... CV AUC:',auc.train))
+
     # save model
     filename=paste('file:///',file.path(outputFolder,'models'), '/h2o', sep='' )
     save.loc <- h2o::h2o.saveModel(object = gbm.model, filename)
@@ -215,12 +253,9 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
     # save in plp format:
 
     # finally return
-    h2o::h2o.shutdown(localH2O, prompt = F)
-
-    # finally return
-    trainSetStatistics <- list(numberOfPeriods = nrow(outcomes),
-                               numberOfPeriodsWithOutcomes = ffbase::sum.ff(outcomes$y != 0),
-                               numberOfOutcomes = ffbase::sum.ff(outcomes$y),
+    trainSetStatistics <- list(numberOfPeriods = nrow(h.data),
+                               numberOfPeriodsWithOutcomes = sum(h.data$y==1),
+                               numberOfOutcomes = sum(h.data$y==1),
                                trainingAUC = auc.train,
                                modeldetails = model.detail)
     predictiveModel <- list(cohortId = cohortId,
@@ -233,6 +268,8 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
     class(predictiveModel) <- append(class(predictiveModel), "predictiveModel")
     delta <- Sys.time() - start
     writeLines(paste("Fitting gradient boosting machine model took", signif(delta, 3), attr(delta, "units")))
+
+    # finally return
     return(predictiveModel)
 
   }
@@ -284,8 +321,8 @@ fitPredictiveModel2 <- function(plpData,databaseSchema, outputFolder,
 #'
 #' @export
 
-sparseToMat <- function(plpData, t.databaseSchema,p.databaseSchema,outputFolder){
-  data.loc <- file.path(outputFolder, 'datasets','lasso',paste('t_',t.databaseSchema,'_p_',p.databaseSchema,'_',plpData$metaData$cohortIds,'_',plpData$metaData$outcomeIds,'.csv', sep=''))
+sparseToMat <- function(plpData, databaseSchema,outputFolder){
+  data.loc <- file.path(outputFolder, 'datasets','lasso',paste('train_',databaseSchema,'_',plpData$metaData$cohortIds,'_',plpData$metaData$outcomeIds,'.csv', sep=''))
 
   # check if the data has already been created for cohortId, outcomeId and cdmDatabaseSchema:
   if(!file.exists(data.loc)){
@@ -378,7 +415,7 @@ sparseToMat <- function(plpData, t.databaseSchema,p.databaseSchema,outputFolder)
 
     # need to select the features choosen by lasso
     coef.file <- file.path(outputFolder,'models',
-                           paste(paste(strsplit(t.databaseSchema, '\\.')[[1]][1],'lassLR', cohortId, outcomeId, sep='_'), '.csv', sep=''))
+                           paste(paste(strsplit(databaseSchema, '\\.')[[1]][1],'lassLR', cohortId, outcomeId, sep='_'), '.csv', sep=''))
     coefs.detail <- read.csv(coef.file)
     coefs.unfiltered <- coefs.detail$id
 

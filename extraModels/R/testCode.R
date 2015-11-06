@@ -1,10 +1,10 @@
 .testCode <- function(){
 
-  modelSettings <- c('lassoLR','nnet','decTree', 'randomForest','gbm','stacker','cox','poisson')
+  modelSettings <- c('lassLR','nnet','decTree', 'randomForest','gbm','stacker','cox','poisson')
 
-  modelList <- c('lassoLR','nnet')
+  modelList <- c('lassLR','randomForest','gbm')
 
-  cdmDatabaseList <- c("cdm_truven_mdcd_v5.dbo")
+  cdmDatabaseList <- c("cdm_cprd_v5.dbo","cdm_jmdc_v5.dbo","cdm_truven_mdcd_v5.dbo")
   cohortId <- 572
   outcomeId <- 573
   cdmCohortTable <- "cohort"
@@ -25,9 +25,9 @@
   outputFolder <- "S:/temp/extraModels"
 
 
-  gestdiaMain(connectionDetails, outputFolder,
-              cdmDatabases, cohortId, outcomeId, cdmVersion,
-              modelList)
+  gestdiaMain(connectionDetails, outputFolder,cdmCohortTable='cohort', cdmVersion="5",
+              cohortId=572, outcomeId=573,
+              cdmDatabaseList, modelList)
 
 
 

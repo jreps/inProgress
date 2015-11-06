@@ -39,8 +39,10 @@
 #'
 #' @export
 trainModels <- function(cdmDatabaseList,modelList, cohortId, outcomeId, outputFolder){
-  writeLines('step 1')
+  writeLines('Training all models on all databases')
   models <- modelList
+
+  h2o.conn <- h2o::h2o.init(startH2O = TRUE,nthreads = -1)
 
   # for each database train all the specified models
   for (i in 1:length(cdmDatabaseList)){
@@ -50,23 +52,25 @@ trainModels <- function(cdmDatabaseList,modelList, cohortId, outcomeId, outputFo
                                                                paste(strsplit(databaseSchema, '\\.')[[1]][1], cohortId, outcomeId, sep='_')))
     writeLines(paste(length(plpData)))
     # do the lassLR to find features to use in other models
-    if(!file.exists(file.path(outputFolder,'models',paste(paste(strsplit(databaseSchema, '\\.')[[1]][1],'lassLR', cohortId, outcomeId, sep='_'), '.rds', sep='')) ))
+    if(!file.exists(file.path(outputFolder,'models',paste(paste(strsplit(databaseSchema, '\\.')[[1]][1],'lassLR', cohortId, outcomeId, sep='_'), '.rds', sep='')) )){
       lassLR(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+      sparseToMat(plpData,databaseSchema,outputFolder)
+    }
 
     if('nnet'%in%models){
-      nnet(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+      nnet(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('decTree'%in%models){
-      decTree(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+      decTree(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('randomForest'%in%models){
-      randomForest(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+      randomForest(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('gbm'%in%models){
-      gbm(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+      gbm(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('stacker'%in%models){
-      stacker(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
+      stacker(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder)
     }
     if('cox'%in%models){
       cox(plpData, databaseSchema,cohortId, outcomeId, outputFolder)
@@ -76,6 +80,7 @@ trainModels <- function(cdmDatabaseList,modelList, cohortId, outcomeId, outputFo
     }
 
   }
+  h2o::h2o.shutdown(h2o.conn, prompt = F)
 
 
 }
@@ -99,7 +104,7 @@ trainModels <- function(cdmDatabaseList,modelList, cohortId, outcomeId, outputFo
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-lassLR <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
+lassLR <- function(plpData, databaseSchema,cohortId, outcomeId, outputFolder){
   model <- PatientLevelPrediction::fitPredictiveModel(plpData,
                                              modelType = "logistic",
                                              removeDropoutsForLr = TRUE,
@@ -141,7 +146,7 @@ lassLR <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-cox <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
+cox <- function(plpData, databaseSchema,cohortId, outcomeId, outputFolder){
   model <- PatientLevelPrediction::fitPredictiveModel(plpData,
                                                       modelType = "survival",
                                                       removeDropoutsForLr = TRUE,
@@ -184,7 +189,7 @@ cox <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-poisson <- function(plpdata,  databaseSchema,cohortId, outcomeId, outputFolder){
+poisson <- function(plpData,  databaseSchema,cohortId, outcomeId, outputFolder){
   model <- PatientLevelPrediction::fitPredictiveModel(plpData,
                                                       modelType = "poisson",
                                                       removeDropoutsForLr = TRUE,
@@ -227,8 +232,8 @@ poisson <- function(plpdata,  databaseSchema,cohortId, outcomeId, outputFolder){
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-nnet <- function(plpData, databaseSchema,cohortId, outcomeId, outputFolder){
-  model <- fitPredictiveModel2(plpData,
+nnet <- function(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder){
+  model <- fitPredictiveModel2(h2o.conn,plpData,
                               databaseSchema,outputFolder,
                               modelType = "nnet",
                               cohortId = cohortId,
@@ -257,8 +262,8 @@ nnet <- function(plpData, databaseSchema,cohortId, outcomeId, outputFolder){
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-randomForest <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
-  model <- fitPredictiveModel2(plpData,
+randomForest <- function(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder){
+  model <- fitPredictiveModel2(h2o.conn, plpData,
                                databaseSchema,outputFolder,
                                modelType = "randomForest",
                                cohortId = cohortId,
@@ -287,8 +292,8 @@ randomForest <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFold
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-gbm <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
-  model <- fitPredictiveModel2(plpData,
+gbm <- function(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder){
+  model <- fitPredictiveModel2(h2o.conn,plpData,
                                databaseSchema,outputFolder,
                                modelType = "gbm",
                                cohortId = cohortId,
@@ -317,8 +322,8 @@ gbm <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
 #' Nothing - the trained model and details are saved in the specified outputFolder
 #'
 #' @export
-decTree <- function(plpdata, databaseSchema,cohortId, outcomeId, outputFolder){
-  model <- fitPredictiveModel2(plpData,
+decTree <- function(h2o.conn,plpData, databaseSchema,cohortId, outcomeId, outputFolder){
+  model <- fitPredictiveModel2(h2o.conn,plpData,
                                databaseSchema,outputFolder,
                                modelType = "decTree",
                                cohortId = cohortId,

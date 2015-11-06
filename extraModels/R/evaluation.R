@@ -39,26 +39,46 @@
 #'
 #' @export
 
-evaluation <- function(modelSettings, cohortId, outcomeId, outputFolder){
-
-  plotCalibration(pred.test.lassolr, plpData.split[[2]], numberOfStrata = 10, truncateFraction = 0.01, fileName = "s:/temp/calibration.png")
+evaluation <- function(outputFolder, rocOptions=list(rocPlotter=FALSE), summaryOptions=list(summaryPlotter=TRUE)){
 
 
-  pred.train.lassolr <-merge(pred.train.lassolr, plpData.split[[1]]$outcomes, by='rowId', all.x=T )
-  pred.train.lassolr$outcomeCount[is.na(pred.train.lassolr$outcomeCount)] <- 0
-  pred.test.lassolr <-merge(pred.test.lassolr, plpData.split[[2]]$outcomes, by='rowId', all.x=T )
-  pred.test.lassolr$outcomeCount[is.na(pred.test.lassolr$outcomeCount)] <- 0
+  # load predictions and plot calibration
+  ##plotCalibration(pred.test.lassolr, plpData.split[[2]], numberOfStrata = 10, truncateFraction = 0.01, fileName = "s:/temp/calibration.png")
 
+if(rocOptions$rocPlotter==TRUE){
+  rocPlotter <- function(method=NULL, trainSet=NULL, predSet=NULL){
+    list.files(path = file.path(outputFolder, 'prediction',
+                                'discrimination', 'plots'), pattern='gbm')
 
-  roc.train.lassolr <- pROC::roc(pred.train.lassolr$outcomeCount, pred.train.lassolr$value)
-  roc.test.lassolr <- pROC::roc(pred.test.lassolr$outcomeCount, pred.test.lassolr$value)
+    # load rocs and do nice plot:
+    first <- T
+    for(roc.file in roc.plot){
+      roc.plot <- readRDS( file.path(outputFolder, 'prediction','discrimination', 'plots',
+                                     roc.file ))
+      # extract details from file name
+      if(first){plot(roc.res, .... )}
+      if(!first){plot(roc.res, add=T)}
+      first <- F
+    }
+  }
+}
 
-  plot(roc.train.lassolr, col='red')
-  plot(roc.test.lassolr, col='blue', add=T)
+  if(summaryOptions$summaryPlotter==TRUE){
+    allres <- read.csv(file.path(outputFolder, 'prediction','discrimination', 'allresults.csv'), header=T)
+    colnames(allres) <- c('Model','Train_set', 'Pred_set', 'AUC')
+    allres$Train_set <- paste('Train: ',
+                              apply(allres, 1, function(x) strsplit(x[2],'\\.')[[1]][1]))
+    allres$Pred_set <- paste('Pred: ',
+                              apply(allres, 1, function(x) strsplit(x[3],'\\.')[[1]][1]))
 
-  # create discrim table: rows as methods, columns as databases and entry as AUC
+    ggplot2::ggplot(data=allres, aes(x=Model, y=AUC, fill=Model, group=Model)) +
 
-  # create calibration table: rows as methods, columns as databases and entry as AUC
+      geom_bar(stat="identity") + #, position=position_dodge, colour='black') +
+                 facet_grid(Train_set~Pred_set) +
+      coord_flip() +
+      theme(axis.ticks.y = element_blank(), axis.text.y = element_blank(),
+            strip.text = element_text(size = 16))
+  }
 
 
 
