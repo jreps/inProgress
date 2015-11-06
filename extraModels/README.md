@@ -17,7 +17,7 @@ Features
 
 Technology
 ==========
-extraModels is an R package, with some functions implemented in C++.
+extraModels is an R package, with use of H2o that runs on Java.
 
 System Requirements
 ===================
@@ -29,13 +29,18 @@ Dependencies
  * DatabaseConnector
  * SqlRender
  * PatientLevelPrediction
+ * H2o
+ * pROC
+ * nnet
+ * rpart
 
 Getting Started
 ===============
 1. On Windows, make sure [RTools](http://cran.r-project.org/bin/windows/Rtools/) is installed.
-2. The DatabaseConnector and SqlRender packages require Java. Java can be downloaded from
+2. The DatabaseConnector, SqlRender and H2o packages require Java. Java can be downloaded from
 <a href="http://www.java.com" target="_blank">http://www.java.com</a>.
-3. In R, use the following commands to download and install extraModels:
+3. Install H2o onto your computer: see [H2o](http://h2o.ai/download/)
+4. In R, use the following commands to download and install extraModels:
 
   ```r
   install.packages("devtools")
